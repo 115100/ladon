@@ -111,6 +111,7 @@ func TestMain(m *testing.M) {
 	connectMEM()
 	connectPG()
 	connectMySQL()
+	connectRedis()
 
 	retCode := m.Run()
 	os.Exit(retCode)
@@ -223,7 +224,7 @@ func connectRedis() {
 	}
 
 	containers = append(containers, c)
-	s := NewRedisManager(db)
+	s := NewRedisManager(db, "")
 
 	managers["redis"] = s
 }

@@ -458,23 +458,22 @@ func main() {
 **Redis**
 
 ```go
-import "github.com/ory-am/ladon"
-import "gopkg.in/redis.v5"
+import (
+	"github.com/ory-am/ladon"
+	"gopkg.in/redis.v5"
+)
 
 func main () {
 	db = redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
-		Password: "",
-		DB:       0,
 	})
 
-	_, err := db.Ping().Result()
-	if err != nil {
+	if _, err := db.Ping().Result(); err != nil {
 		log.Fatalf("Could not connect to database: %s". err)
 	}
 
 	warden := ladon.Ladon{
-		Manager: ladon.NewRedisManager(db)
+		Manager: ladon.NewRedisManager(db, "redis_key_prefix:")
 	}
 
 	// ...
