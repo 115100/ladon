@@ -468,7 +468,7 @@ func main () {
 		Addr:     "localhost:6379",
 	})
 
-	if _, err := db.Ping().Result(); err != nil {
+	if err := db.Ping().Err(); err != nil {
 		log.Fatalf("Could not connect to database: %s". err)
 	}
 
