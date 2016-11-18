@@ -23,6 +23,8 @@ func NewRedisManager(db *redis.Client, keyPrefix string) *RedisManager {
 
 const redisPolicies = "ladon:policies"
 
+var redisNotFound = errors.New("Not found")
+
 func (m *RedisManager) redisPoliciesKey() string {
 	return m.keyPrefix + redisPolicies
 }
@@ -34,8 +36,8 @@ func (m *RedisManager) Create(policy Policy) error {
 		return err
 	}
 
-	keySet, err := m.db.HSetNX(m.redisPoliciesKey(), policy.GetID(), string(payload)).Result()
-	if !keySet {
+	wasKeySet, err := m.db.HSetNX(m.redisPoliciesKey(), policy.GetID(), string(payload)).Result()
+	if !wasKeySet {
 		return errors.New("Policy exists")
 	} else if err != nil {
 		return err
@@ -44,20 +46,16 @@ func (m *RedisManager) Create(policy Policy) error {
 	return nil
 }
 
-func (m *RedisManager) getPolicyFromRedis(id string) (Policy, error) {
+// Get retrieves a policy.
+func (m *RedisManager) Get(id string) (Policy, error) {
 	resp, err := m.db.HGet(m.redisPoliciesKey(), id).Bytes()
 	if err == redis.Nil {
-		return nil, errors.New("Not found")
+		return nil, redisNotFound
 	} else if err != nil {
 		return nil, errors.Wrap(err, "")
 	}
 
-	return unmarshalPolicy(resp)
-}
-
-// Get retrieves a policy.
-func (m *RedisManager) Get(id string) (Policy, error) {
-	return m.getPolicyFromRedis(id)
+	return redisUnmarshalPolicy(resp)
 }
 
 // Delete removes a policy.
@@ -67,18 +65,16 @@ func (m *RedisManager) Delete(id string) error {
 
 // FindPoliciesForSubject finds all policies associated with the subject.
 func (m *RedisManager) FindPoliciesForSubject(subject string) (Policies, error) {
-	ps := Policies{}
+	var ps Policies
 
 	iter := m.db.HScan(m.redisPoliciesKey(), 0, "", 0).Iterator()
 	for iter.Next() {
-		// Unused policy ID
-		iter.Val()
 		if !iter.Next() {
 			break
 		}
 		resp := []byte(iter.Val())
 
-		p, err := unmarshalPolicy(resp)
+		p, err := redisUnmarshalPolicy(resp)
 		if err != nil {
 			return nil, err
 		}
@@ -98,9 +94,9 @@ func (m *RedisManager) FindPoliciesForSubject(subject string) (Policies, error) 
 	return ps, nil
 }
 
-func unmarshalPolicy(policy []byte) (Policy, error) {
-	p := new(DefaultPolicy)
-	if err := json.Unmarshal(policy, p); err != nil {
+func redisUnmarshalPolicy(policy []byte) (Policy, error) {
+	var p *DefaultPolicy
+	if err := json.Unmarshal(policy, &p); err != nil {
 		return nil, errors.Wrap(err, "")
 	}
 
